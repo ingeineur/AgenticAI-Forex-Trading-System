@@ -305,6 +305,10 @@ The local `tradingview-mcp/` folder is a third-party working copy and is intenti
 - Credentials are loaded from environment variables; `.env.example` is a template only.
 - If credentials were ever stored in plaintext or pushed to a remote, rotate them.
 
+## License
+
+Released under the [MIT License](LICENSE).
+
 ## Disclaimer
 
 This software is provided for education and research. It is not financial advice, comes with no
