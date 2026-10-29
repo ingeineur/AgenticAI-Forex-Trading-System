@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strategy Manager</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+body { background: #1a1d23; color: #e0e0e0; font-size: .9rem; }
+.card { background: #252830; border: 1px solid #3a3e48; }
+.card-header { background: #2d303a; border-bottom: 1px solid #3a3e48; color: #fff; }
+.card-header .text-muted { color: #ccc !important; }
+.card-body { color: #ddd; }
+.card-body .small { color: #fff !important; }
+.card-footer { background: #2d303a; }
+.btn-sm { font-size: .8rem; }
+.badge { font-size: .75rem; }
+.log-box { background: #111; color: #0f0; font-family: 'Cascadia Code', 'Consolas', monospace; font-size: .8rem; padding: .5rem; border-radius: 4px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+.form-control, .form-select { background: #1a1d23; border: 1px solid #3a3e48; color: #e0e0e0; }
+.form-control:focus, .form-select:focus { background: #1a1d23; color: #e0e0e0; }
+.form-control:disabled { background: #2d303a; color: #999; }
+.form-label { margin-bottom: .2rem; font-size: .85rem; }
+.modal-content { background: #252830; border: 1px solid #3a3e48; }
+.modal-header { border-bottom: 1px solid #3a3e48; }
+.modal-footer { border-top: 1px solid #3a3e48; }
+.btn-close { filter: invert(1); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Login -->
+  <div id="login-page" class="container" style="max-width:400px;padding-top:20vh;">
+    <h3 class="mb-4 text-center">AI Trader 1.0</h3>
+    <div class="card p-4">
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" id="login-pwd" class="form-control" @keyup.enter="login()">
+      </div>
+      <button class="btn btn-primary w-100" onclick="login()">Login</button>
+      <div id="login-err" class="text-danger mt-2 small"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" style="display:none;">
+    <nav class="navbar navbar-dark bg-dark px-3 mb-3">
+      <span class="navbar-brand mb-0 h6">AI Trader 1.0</span>
+      <div>
+        <span class="text-light me-2 small" id="header-trends"></span>
+        <span class="text-light me-2 small">
+          Offset: <input id="trend-offset" type="number" min="0" max="168" value="0" style="width:50px;background:#1a1d23;border:1px solid #3a3e48;color:#e0e0e0;padding:1px 4px;font-size:.8rem;" onchange="loadStrategies()">
+        </span>
+        <span class="text-light me-2 small" id="header-positions"></span>
+        <span class="text-light me-3" id="total-pnl"></span>
+        <button class="btn btn-outline-light btn-sm me-2" onclick="showAdd()">+ Add Strategy</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="logout()">Logout</button>
+      </div>
+    </nav>
+    <div class="container-fluid">
+      <div id="strategy-list" class="row"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="add-modal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h6 class="modal-title" id="add-title">Add Strategy</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+  <div class="row g-2">
+    <div class="col-md-4">
+      <label class="form-label">Template</label>
+      <select id="tmpl" class="form-select" onchange="applyTemplate()">
+        <option value="">Custom</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">ID</label>
+      <input id="add-id" class="form-control" placeholder="mss_xau_h1">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">File</label>
+      <select id="add-file" class="form-select">
+        <option value="sweep_mss_zone.py">MSS</option>
+        <option value="sweep_mss_zone_v2.py">MSS v2</option>
+        <option value="sweep_mss_zone_v3.py">MSS v3 (XGB)</option>
+        <option value="sweep_mss_zone_v4.py">MSS v4 (XGB)</option>
+        <option value="smc_strategy.py">SMC</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Symbol</label>
+      <select id="add-symbol" class="form-select">
+        <option>XAUUSD</option><option>BTCUSD</option><option>NAS100</option>
+      </select>
+    </div>
+  </div>
+  <div class="row g-2 mt-2">
+    <div class="col-md-2">
+      <label class="form-label">TF</label>
+      <select id="add-tf" class="form-select">
+        <option value="h1">H1</option><option value="m15">M15</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">SL-ATR</label>
+      <input id="add-sl" class="form-control" value="1.2">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">TP-ATR</label>
+      <input id="add-tp" class="form-control" value="0.5">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">ML Threshold</label>
+      <input id="add-ml" class="form-control" value="0.7">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Max Signal Age</label>
+      <input id="add-age" class="form-control" value="48">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">RVS Threshold</label>
+      <input id="add-rvs" class="form-control" value="0">
+    </div>
+  </div>
+  <div class="row g-2 mt-2">
+    <div class="col-md-2">
+      <div class="form-check"><input id="add-d1" class="form-check-input" type="checkbox"><label class="form-check-label">D1 Trend</label></div>
+    </div>
+    <div class="col-md-3">
+      <div class="form-check"><input id="add-market" class="form-check-input" type="checkbox" checked><label class="form-check-label">Market Only</label></div>
+    </div>
+    <div class="col-md-3">
+      <div class="form-check"><input id="add-of" class="form-check-input" type="checkbox" checked><label class="form-check-label">Orderflow</label></div>
+    </div>
+    <div class="col-md-3">
+      <div class="form-check"><input id="add-ob-sweep" class="form-check-input" type="checkbox"><label class="form-check-label">OB Sweep</label></div>
+    </div>
+  </div>
+  <div class="row g-2 mt-2">
+    <div class="col-md-3">
+      <div class="form-check"><input id="add-skip-swept" class="form-check-input" type="checkbox"><label class="form-check-label">Skip Swept Zone</label></div>
+    </div>
+  </div>
+  <div class="row g-2 mt-2">
+    <div class="col-md-2">
+      <label class="form-label">Fractal Str</label>
+      <input id="add-fractal" class="form-control" value="2">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Max Orders</label>
+      <input id="add-orders" class="form-control" value="2">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Volume</label>
+      <input id="add-volume" class="form-control" value="0.01">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Lookback</label>
+      <input id="add-lookback" class="form-control" value="100">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">OF Lookback</label>
+      <input id="add-of-lookback" class="form-control" value="5">
+    </div>
+  </div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-success" id="add-btn" onclick="createStrategy()">Create & Start</button>
+</div>
+</div></div></div>
+
+<!-- Log Modal -->
+<div class="modal fade" id="log-modal" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content">
+<div class="modal-header"><h6 class="modal-title" id="log-title">Logs</h6><div><button class="btn btn-sm btn-outline-light me-2" onclick="clearLogs()">Clear</button><button class="btn btn-sm btn-outline-light me-2" onclick="refreshLogs()">Refresh</button><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div></div>
+<div class="modal-body"><pre class="log-box" id="log-box" style="max-height:70vh;"></pre></div>
+</div></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let TOKEN = localStorage.getItem('token');
+let pollTimer = null;
+let _editingId = null;
+let _logId = null;
+let _trendsNoD1 = {};
+let _trendsD1 = {};
+
+function api(path, opts={}) {
+  opts.headers = opts.headers || {};
+  opts.headers['Authorization'] = 'Bearer ' + (TOKEN || '');
+  if (opts.body && typeof opts.body === 'object') {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  return fetch('/api' + path, opts).then(r => {
+    if (r.status === 401) { TOKEN = null; localStorage.removeItem('token'); showLogin(); throw new Error('Unauthorized'); }
+    if (!r.ok) return r.json().then(e => { throw new Error(e.detail || 'Error') });
+    return r.json();
+  });
+}
+
+function login() {
+  const pwd = document.getElementById('login-pwd').value;
+  api('/auth/login', {method:'POST', body:{password:pwd}}).then(r => {
+    TOKEN = r.token; localStorage.setItem('token', TOKEN);
+    showDashboard(); loadStrategies();
+  }).catch(e => document.getElementById('login-err').textContent = e.message);
+}
+
+function logout() {
+  TOKEN = null; localStorage.removeItem('token');
+  if (pollTimer) clearInterval(pollTimer);
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login-page').style.display = '';
+  document.getElementById('dashboard').style.display = 'none';
+}
+
+function showDashboard() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('dashboard').style.display = '';
+}
+
+function loadStrategies() {
+  const offset = document.getElementById('trend-offset').value || 0;
+  Promise.all([
+    api('/strategies'),
+    api('/market/trends?offset=' + offset).catch(() => ({})),
+    api('/market/trends?offset=' + offset + '&d1=1').catch(() => ({})),
+    api('/positions/open').catch(() => ({count:0, total_pnl:0})),
+  ]).then(([list, t0, t1, pos]) => {
+    const container = document.getElementById('strategy-list');
+    _trendsNoD1 = t0;
+    _trendsD1 = t1;
+    if (list.length === 0) {
+      container.innerHTML = '<div class="col-12 text-center text-muted py-5">No strategies configured. Click + Add Strategy to begin.</div>';
+      document.getElementById('total-pnl').textContent = '';
+      return;
+    }
+    container.innerHTML = list.map(s => renderCard(s)).join('');
+    const totalR = list.reduce((sum, s) => sum + (s.pnl?.pnl_r || 0), 0);
+    document.getElementById('total-pnl').textContent = `Total: ${totalR >= 0 ? '+' : ''}${totalR.toFixed(1)}R`;
+
+    // Trends display (use non-D1 for header)
+    const tDiv = document.getElementById('header-trends');
+    let tHtml = '';
+    for (const sym of ['XAUUSD', 'BTCUSD', 'NAS100']) {
+      const t = (t0 || {})[sym] || {};
+      const tr = t.trend || '?';
+      const tf = t.tf_trend || '?';
+      const rv = t.reversal_pct || 0;
+      const col = tr === 'BULLISH' ? '#4caf50' : tr === 'BEARISH' ? '#f44336' : '#888';
+      const rvCol = rv > 50 ? '#f44336' : rv > 30 ? '#ff9800' : '#4caf50';
+      tHtml += `<span style="margin-right:14px"><strong>${sym}</strong> <span style="color:${col}">${tr}</span><span style="color:#aaa"></span> <span style="color:${rvCol};font-size:.75rem">RVS:${rv.toFixed(0)}%</span></span>`;
+    }
+    tDiv.innerHTML = tHtml;
+
+    // Open positions
+    const oDiv = document.getElementById('header-positions');
+    const pc = pos?.count || 0;
+    const pp = pos?.total_pnl || 0;
+    const pCol = pp > 0 ? '#4caf50' : pp < 0 ? '#f44336' : '#888';
+    oDiv.innerHTML = `<span style="margin-right:12px">Open: <strong>${pc}</strong></span><span style="color:${pCol}">${pp >= 0 ? '+' : ''}$${pp.toFixed(2)}</span>`;
+  });
+}
+
+function getRvs(symbol, useD1) {
+  const data = useD1 ? _trendsD1 : _trendsNoD1;
+  const t = (data || {})[symbol] || {};
+  const rv = t.reversal_pct;
+  return rv != null ? rv.toFixed(0) : '—';
+}
+function getRvsColor(symbol, useD1) {
+  const data = useD1 ? _trendsD1 : _trendsNoD1;
+  const t = (data || {})[symbol] || {};
+  const rv = t.reversal_pct || 0;
+  return rv > 50 ? '#f44336' : rv > 30 ? '#ff9800' : '#4caf50';
+}
+
+function renderCard(s) {
+  const useD1 = (s.args || []).includes('--d1');
+  const statusBadge = {running:'bg-success', stopped:'bg-secondary', error:'bg-danger'}[s.status] || 'bg-secondary';
+  const uptime = s.uptime ? Math.floor(s.uptime / 60) + 'm' : '—';
+  const pnl = s.pnl || {};
+  const pnlColor = pnl.pnl_r > 0 ? '#4caf50' : pnl.pnl_r < 0 ? '#f44336' : '#999';
+  const pnlStr = pnl.pnl_r != null ? `${pnl.pnl_r >= 0 ? '+' : ''}${pnl.pnl_r.toFixed(1)}R` : '—';
+  const b = s.bias || {};
+  const syncColor = (b.final && b.tf && b.final === b.tf) ? '#4caf50' : (b.final && b.tf) ? '#f44336' : '#555';
+  const mlTh = (() => { const a = s.args || []; const i = a.indexOf('--ml-threshold'); return i >= 0 ? a[i+1] : '—'; })();
+  const fractal = (() => { const a = s.args || []; const i = a.indexOf('--fractal-strength'); return i >= 0 ? a[i+1] : '—'; })();
+  const model = s.model || '—';
+  const lot = s.volume || '—';
+  const swept = s.swept || null;
+  const mss = s.mss || null;
+  const sweptStr = swept ? swept.replace(/^\s*@\s*/, '').replace('@ ', '@') : '—';
+  const sweptCol = swept ? '#ffcf4d' : '#555';
+  const mssStr = mss || '—';
+  const mssBull = /BULL/i.test(mssStr), mssBear = /BEAR/i.test(mssStr);
+  const mssCol = mssBull ? '#4caf50' : mssBear ? '#f44336' : '#555';
+  return `<div class="col-md-6 col-lg-4 mb-3">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center py-2">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${syncColor};margin-right:8px;"></span><strong>${s.id}</strong> <span class="badge ${statusBadge}">${s.status}</span></span>
+        <span class="text-muted small">${s.symbol} ${s.tf} <span style="color:${pnlColor};font-weight:bold;">${pnlStr}</span></span>
+      </div>
+      <div class="card-body py-2">
+        <div class="row small text-muted">
+          <div class="col-3">ID: ${s.short_id || '—'}</div>
+          <div class="col-3">Trades: ${pnl.trades || 0}</div>
+          <div class="col-3">W/L: ${pnl.wins || 0}/${pnl.losses || 0}</div>
+          <div class="col-3">${b.final || '?'}/${b.tf || '?'}</div>
+        </div>
+        <div class="row small text-muted mt-1">
+          <div class="col-4">Model: <span style="color:#82aaff" title="ML model file">${model}</span></div>
+          <div class="col-4">Lot: <span style="color:#ffb74d;font-weight:bold;">${lot}</span></div>
+          <div class="col-4">Fractal: <span style="color:#ce93d8;font-weight:bold;">${fractal}</span></div>
+        </div>
+        <div class="row small text-muted mt-1">
+          <div class="col-6">Swept: <span style="color:${sweptCol};font-weight:bold;" title="Latest liquidity level swept">${sweptStr}</span></div>
+          <div class="col-6">MSS: <span style="color:${mssCol};font-weight:bold;" title="Latest market structure shift">${mssStr}</span></div>
+        </div>
+        <div class="row small text-muted mt-1">
+          <div class="col-6">RVS: <span style="color:${getRvsColor(s.symbol, useD1)}">${getRvs(s.symbol, useD1)}%</span></div>
+          <div class="col-6">ML: <span style="color:#82aaff;font-weight:bold;">${mlTh}</span></div>
+        </div>
+      </div>
+      <div class="card-footer py-2 d-flex gap-1">
+        <button class="btn btn-success btn-sm flex-fill" onclick="startStrategy('${s.id}')" ${s.status=='running'?'disabled':''}>Start</button>
+        <button class="btn btn-danger btn-sm flex-fill" onclick="stopStrategy('${s.id}')" ${s.status!='running'?'disabled':''}>Stop</button>
+        <button class="btn btn-info btn-sm flex-fill" onclick="restartStrategy('${s.id}')">Restart</button>
+        <button class="btn btn-outline-light btn-sm" onclick="showLogs('${s.id}')" title="Logs">📄</button>
+        <button class="btn btn-outline-warning btn-sm" onclick="editStrategy('${s.id}')" title="Edit">✏</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="deleteStrategy('${s.id}')" title="Delete">🗑</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function startStrategy(id) {
+  api(`/strategies/${id}/start`, {method:'POST'}).then(loadStrategies);
+}
+function stopStrategy(id) {
+  api(`/strategies/${id}/stop`, {method:'POST'}).then(loadStrategies);
+}
+function restartStrategy(id) {
+  api(`/strategies/${id}/restart`, {method:'POST'}).then(loadStrategies);
+}
+function deleteStrategy(id) {
+  if (!confirm('Delete ' + id + '?')) return;
+  api(`/strategies/${id}`, {method:'DELETE'}).then(loadStrategies);
+}
+
+function showLogs(id) {
+  _logId = id;
+  document.getElementById('log-title').textContent = 'Logs: ' + id;
+  const box = document.getElementById('log-box');
+  box.textContent = 'Loading...';
+  const modal = new bootstrap.Modal(document.getElementById('log-modal'));
+  modal.show();
+  api(`/strategies/${id}/logs?n=100`).then(r => {
+    box.textContent = r.lines.join('\n') || '(empty)';
+  });
+}
+
+function refreshLogs() {
+  if (_logId) showLogs(_logId);
+}
+
+function clearLogs() {
+  document.getElementById('log-box').textContent = '';
+}
+
+function showAdd() {
+  api('/templates').then(templates => {
+    const sel = document.getElementById('tmpl');
+    sel.innerHTML = '<option value="">Custom</option>' +
+      templates.map(t => `<option value='${JSON.stringify(t).replace(/'/g,"&#39;")}'>${t.id}</option>`).join('');
+  });
+  _editingId = null;
+  document.getElementById('add-title').textContent = 'Add Strategy';
+  document.getElementById('add-btn').textContent = 'Create & Start';
+  document.getElementById('add-btn').className = 'btn btn-success';
+  document.getElementById('tmpl').value = '';
+  document.getElementById('add-id').value = '';
+  document.getElementById('add-id').disabled = false;
+  document.getElementById('add-file').value = 'sweep_mss_zone.py';
+  document.getElementById('add-symbol').value = 'XAUUSD';
+  document.getElementById('add-tf').value = 'h1';
+  document.getElementById('add-sl').value = '1.2';
+  document.getElementById('add-tp').value = '0.5';
+  document.getElementById('add-ml').value = '0.7';
+  document.getElementById('add-age').value = '48';
+  document.getElementById('add-orders').value = '2';
+  document.getElementById('add-fractal').value = '2';
+  document.getElementById('add-lookback').value = '100';
+  document.getElementById('add-of-lookback').value = '5';
+  document.getElementById('add-volume').value = '0.01';
+  document.getElementById('add-rvs').value = '0';
+  document.getElementById('add-market').checked = true;
+  document.getElementById('add-of').checked = true;
+  document.getElementById('add-ob-sweep').checked = false;
+  document.getElementById('add-skip-swept').checked = false;
+  document.getElementById('add-d1').checked = false;
+  new bootstrap.Modal(document.getElementById('add-modal')).show();
+}
+
+function editStrategy(id) {
+  api(`/strategies/${id}`).then(s => {
+    _editingId = id;
+    document.getElementById('add-title').textContent = 'Edit Strategy';
+    document.getElementById('add-btn').textContent = 'Save & Restart';
+    document.getElementById('add-btn').className = 'btn btn-warning';
+    document.getElementById('tmpl').value = '';
+    document.getElementById('add-id').value = id;
+    document.getElementById('add-id').disabled = true;
+    document.getElementById('add-file').value = s.file || 'sweep_mss_zone.py';
+    document.getElementById('add-symbol').value = s.symbol || 'XAUUSD';
+    document.getElementById('add-tf').value = s.tf || 'h1';
+    const a = s.args || [];
+    document.getElementById('add-sl').value = a[a.indexOf('--sl-atr')+1] || '1.2';
+    document.getElementById('add-tp').value = a[a.indexOf('--tp-atr')+1] || '0.5';
+    document.getElementById('add-ml').value = a[a.indexOf('--ml-threshold')+1] || '0.7';
+    document.getElementById('add-age').value = a[a.indexOf('--max-signal-age')+1] || '48';
+    document.getElementById('add-orders').value = a[a.indexOf('--max-orders')+1] || '2';
+    document.getElementById('add-fractal').value = a[a.indexOf('--fractal-strength')+1] || '2';
+    document.getElementById('add-lookback').value = a[a.indexOf('--lookback')+1] || '100';
+    document.getElementById('add-of-lookback').value = a[a.indexOf('--of-lookback')+1] || '5';
+    document.getElementById('add-volume').value = a[a.indexOf('--volume')+1] || '0.01';
+    document.getElementById('add-rvs').value = a.indexOf('--rvs-threshold') >= 0 ? a[a.indexOf('--rvs-threshold')+1] : '0';
+    document.getElementById('add-volume').value = a[a.indexOf('--volume')+1] || '0.01';
+    document.getElementById('add-rvs').value = a.indexOf('--rvs-threshold') >= 0 ? a[a.indexOf('--rvs-threshold')+1] : '0';
+    document.getElementById('add-market').checked = a.includes('--market-only');
+    document.getElementById('add-of').checked = a.includes('--orderflow');
+    document.getElementById('add-ob-sweep').checked = a.includes('--ob-sweep');
+    document.getElementById('add-skip-swept').checked = a.includes('--skip-swept');
+    document.getElementById('add-d1').checked = a.includes('--d1');
+    new bootstrap.Modal(document.getElementById('add-modal')).show();
+  });
+}
+
+function applyTemplate() {
+  const raw = document.getElementById('tmpl').value;
+  if (!raw) return;
+  const t = JSON.parse(raw);
+  document.getElementById('add-id').value = t.id;
+  document.getElementById('add-file').value = t.file || 'sweep_mss_zone.py';
+  document.getElementById('add-symbol').value = t.symbol || 'XAUUSD';
+  document.getElementById('add-tf').value = t.tf || 'h1';
+  const a = t.args || [];
+  document.getElementById('add-sl').value = a[a.indexOf('--sl-atr')+1] || '1.2';
+  document.getElementById('add-tp').value = a[a.indexOf('--tp-atr')+1] || '0.5';
+  document.getElementById('add-ml').value = a[a.indexOf('--ml-threshold')+1] || '0.7';
+  document.getElementById('add-age').value = a[a.indexOf('--max-signal-age')+1] || '48';
+  document.getElementById('add-orders').value = a[a.indexOf('--max-orders')+1] || '2';
+  document.getElementById('add-fractal').value = a[a.indexOf('--fractal-strength')+1] || '2';
+  document.getElementById('add-lookback').value = a[a.indexOf('--lookback')+1] || '100';
+  document.getElementById('add-of-lookback').value = a[a.indexOf('--of-lookback')+1] || '5';
+  document.getElementById('add-market').checked = a.includes('--market-only');
+  document.getElementById('add-of').checked = a.includes('--orderflow');
+  document.getElementById('add-ob-sweep').checked = a.includes('--ob-sweep');
+  document.getElementById('add-skip-swept').checked = a.includes('--skip-swept');
+  document.getElementById('add-d1').checked = a.includes('--d1');
+}
+
+function createStrategy() {
+  const id = document.getElementById('add-id').value.trim();
+  if (!id) return alert('Enter an ID');
+  const args = [];
+  if (document.getElementById('add-market').checked) args.push('--market-only');
+  if (document.getElementById('add-of').checked) { args.push('--orderflow'); args.push('--of-mode','ohlc'); }
+  if (document.getElementById('add-ob-sweep').checked) args.push('--ob-sweep');
+  if (document.getElementById('add-skip-swept').checked) args.push('--skip-swept');
+  if (document.getElementById('add-d1').checked) args.push('--d1');
+  args.push('--sl-atr', document.getElementById('add-sl').value);
+  args.push('--tp-atr', document.getElementById('add-tp').value);
+  args.push('--ml-threshold', document.getElementById('add-ml').value);
+  args.push('--max-signal-age', document.getElementById('add-age').value);
+  args.push('--max-orders', document.getElementById('add-orders').value);
+  args.push('--fractal-strength', document.getElementById('add-fractal').value);
+  args.push('--lookback', document.getElementById('add-lookback').value);
+  args.push('--of-lookback', document.getElementById('add-of-lookback').value);
+  args.push('--volume', document.getElementById('add-volume').value);
+  const rvs = parseInt(document.getElementById('add-rvs').value);
+  if (rvs > 0) { args.push('--rvs-threshold', rvs.toString()); }
+  const body = {
+    file: document.getElementById('add-file').value,
+    symbol: document.getElementById('add-symbol').value,
+    tf: document.getElementById('add-tf').value, args,
+  };
+  if (_editingId) {
+    api(`/strategies/${_editingId}/config`, {method:'PUT', body}).then(r => {
+      bootstrap.Modal.getInstance(document.getElementById('add-modal')).hide();
+      loadStrategies();
+    }).catch(e => alert(e.message));
+  } else {
+    body.id = id;
+    api('/strategies', {method:'POST', body}).then(r => {
+      bootstrap.Modal.getInstance(document.getElementById('add-modal')).hide();
+      api(`/strategies/${r.id}/start`, {method:'POST'}).then(loadStrategies);
+    }).catch(e => alert(e.message));
+  }
+}
+
+// Auto-refresh
+if (TOKEN) { showDashboard(); loadStrategies(); pollTimer = setInterval(loadStrategies, 5000); }
+</script>
+</body>
+</html>

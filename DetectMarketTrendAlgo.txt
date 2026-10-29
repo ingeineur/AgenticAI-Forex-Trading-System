@@ -1,0 +1,148 @@
+FUNCTION DetectMarketTrend(symbol)
+
+    ####################################################
+    ## STEP 1 : Load Data
+    ####################################################
+
+    D1  = LoadOHLC(symbol, "D1")
+    H4  = LoadOHLC(symbol, "H4")
+    H1  = LoadOHLC(symbol, "H1")
+    M15 = LoadOHLC(symbol, "M15")
+
+
+    ####################################################
+    ## STEP 2 : Analyse Every Timeframe
+    ####################################################
+
+    ResultD1  = AnalyseTimeframe(D1)
+    ResultH4  = AnalyseTimeframe(H4)
+    ResultH1  = AnalyseTimeframe(H1)
+    ResultM15 = AnalyseTimeframe(M15)
+
+
+    ####################################################
+    ## STEP 3 : Weighted Majority Vote
+    ####################################################
+
+    Weights
+
+        D1  = 0.40
+        H4  = 0.30
+        H1  = 0.20
+        M15 = 0.10
+
+
+    BullScore = 0
+    BearScore = 0
+    SideScore = 0
+
+
+    FOR each timeframe result
+
+        IF Trend == Bullish
+
+            BullScore += Weight × Confidence
+
+        ELSE IF Trend == Bearish
+
+            BearScore += Weight × Confidence
+
+        ELSE
+
+            SideScore += Weight × Confidence
+
+    END FOR
+
+
+
+    ####################################################
+    ## STEP 4 : Final Classification
+    ####################################################
+
+    HighestScore = MAX(BullScore,
+                       BearScore,
+                       SideScore)
+
+    IF HighestScore == BullScore
+
+        FinalTrend = Bullish
+
+    ELSE IF HighestScore == BearScore
+
+        FinalTrend = Bearish
+
+    ELSE
+
+        FinalTrend = Sideways
+
+
+
+    ####################################################
+    ## STEP 5 : Detect Pullback
+    ####################################################
+
+    Pullback = FALSE
+
+    IF ResultD1.Trend == Bullish
+
+        IF ResultH4.Trend == Bullish
+
+            IF ResultH1.Trend == Bullish
+
+                IF ResultM15.Trend == Bearish
+
+                    Pullback = TRUE
+
+
+
+    IF ResultD1.Trend == Bearish
+
+        IF ResultH4.Trend == Bearish
+
+            IF ResultH1.Trend == Bearish
+
+                IF ResultM15.Trend == Bullish
+
+                    Pullback = TRUE
+
+
+
+    ####################################################
+    ## STEP 6 : Detect Possible Reversal
+    ####################################################
+
+    Reversal = FALSE
+
+    IF ResultD1.Trend != ResultH4.Trend
+
+        IF ResultH4.Trend == ResultH1.Trend
+
+            IF ResultH1.Trend == ResultM15.Trend
+
+                Reversal = TRUE
+
+
+
+    ####################################################
+    ## STEP 7 : Return Result
+    ####################################################
+
+    RETURN
+
+        Trend
+
+        Confidence
+
+        BullScore
+
+        BearScore
+
+        SideScore
+
+        Pullback
+
+        Reversal
+
+        TimeframeResults
+
+END FUNCTION

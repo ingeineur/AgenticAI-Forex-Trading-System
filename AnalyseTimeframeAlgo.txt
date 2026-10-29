@@ -1,0 +1,236 @@
+FUNCTION AnalyseTimeframe(data)
+
+    #########################################
+    ## Calculate Indicators
+    #########################################
+
+    EMA20
+
+    EMA50
+
+    EMA200
+
+    RSI
+
+    MACD
+
+    ADX
+
+    ATR
+
+    Bollinger Bands
+
+
+
+    #########################################
+    ## Detect Market Structure
+    #########################################
+
+    HH
+
+    HL
+
+    LH
+
+    LL
+
+
+
+    #########################################
+    ## Calculate EMA Slope
+    #########################################
+
+    EMASlope
+
+
+
+    #########################################
+    ## Detect Consolidation
+    #########################################
+
+    Bollinger Width
+
+    Range Width
+
+    EMA Cross Count
+
+
+
+    #########################################
+    ## Initialise Scores
+    #########################################
+
+    Bull = 0
+
+    Bear = 0
+
+    Side = 0
+
+
+
+    #########################################
+    ## EMA Alignment
+    #########################################
+
+    IF EMA20 > EMA50 > EMA200
+
+        Bull += 2
+
+    ELSE IF EMA20 < EMA50 < EMA200
+
+        Bear += 2
+
+    ELSE
+
+        Side += 1
+
+
+
+    #########################################
+    ## EMA Slope
+    #########################################
+
+    IF EMASlope > Threshold
+
+        Bull += 2
+
+    ELSE IF EMASlope < -Threshold
+
+        Bear += 2
+
+    ELSE
+
+        Side += 1
+
+
+
+    #########################################
+    ## ADX
+    #########################################
+
+    IF ADX > 25
+
+        IF +DI > -DI
+
+            Bull += 2
+
+        ELSE
+
+            Bear += 2
+
+    ELSE
+
+        Side += 2
+
+
+
+    #########################################
+    ## RSI
+    #########################################
+
+    IF RSI > 60
+
+        Bull += 1
+
+    ELSE IF RSI < 40
+
+        Bear += 1
+
+    ELSE
+
+        Side += 1
+
+
+
+    #########################################
+    ## MACD
+    #########################################
+
+    IF MACD > Signal
+
+        Bull += 1
+
+    ELSE
+
+        Bear += 1
+
+
+
+    #########################################
+    ## Market Structure
+    #########################################
+
+    IF HH AND HL
+
+        Bull += 3
+
+    ELSE IF LH AND LL
+
+        Bear += 3
+
+    ELSE
+
+        Side += 2
+
+
+
+    #########################################
+    ## Bollinger Width
+    #########################################
+
+    IF BandWidth < NarrowThreshold
+
+        Side += 2
+
+
+
+    #########################################
+    ## Final Trend
+    #########################################
+
+    IF Bull > Bear
+
+        IF Bull > Side
+
+            Trend = Bullish
+
+    IF Bear > Bull
+
+        IF Bear > Side
+
+            Trend = Bearish
+
+    IF Side >= Bull
+
+        IF Side >= Bear
+
+            Trend = Sideways
+
+
+
+    #########################################
+    ## Confidence
+    #########################################
+
+    Total = Bull + Bear + Side
+
+    Confidence =
+        MAX(Bull,
+            Bear,
+            Side) / Total
+
+
+
+    RETURN
+
+        Trend
+
+        Confidence
+
+        Bull
+
+        Bear
+
+        Side
+
+END FUNCTION
